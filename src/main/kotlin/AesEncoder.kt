@@ -1,4 +1,5 @@
-import java.nio.ByteBuffer
+import java.nio.ByteBuffer.allocate
+import java.nio.ByteBuffer.wrap
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -22,29 +23,25 @@ object AesEncoder {
             .generateKey()
 
     // Password derived AES secret key
-    fun getAESKey(password: CharArray, salt: ByteArray, keySize: Int = 256, iterationCount: Int = 65536): SecretKey =
+    fun getAESKey(password: String, salt: ByteArray, keySize: Int = 256, iterationCount: Int = 65536): SecretKey =
         SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-            .generateSecret(PBEKeySpec(password, salt, iterationCount, keySize))
+            .generateSecret(PBEKeySpec(password.toCharArray(), salt, iterationCount, keySize))
             .let { SecretKeySpec(it.encoded, "AES") }
 
-    fun encryptWithPrefixIV(plainText: ByteArray, secret: SecretKey, iv: ByteArray): ByteArray =
-        with(encrypt(plainText, secret, iv)) {
-            ByteBuffer.allocate(IV_SIZE + size)
-                .put(iv).put(this)
-                .array()
-        }
+    fun encryptWithPrefixIV(plainText: String, secret: SecretKey, iv: ByteArray): ByteArray =
+        concat(iv, encrypt(plainText, secret, iv))
 
-    fun encrypt(plainText: ByteArray, secret: SecretKey, iv: ByteArray): ByteArray =
+    fun encrypt(plainText: String, secret: SecretKey, iv: ByteArray): ByteArray =
         Cipher.getInstance("AES/CBC/PKCS5Padding")
             .apply { init(Cipher.ENCRYPT_MODE, secret, IvParameterSpec(iv)) }
-            .doFinal(plainText)
+            .doFinal(plainText.toByteArray())
 
-    fun decryptWithPrefixIV(cipherText: ByteArray, secret: SecretKey): String = with(
-        ByteBuffer.wrap(cipherText)) {
-        val iv = ByteArray(IV_SIZE).also(::get)
-        val cipher = ByteArray(remaining()).also(::get)
-        decrypt(cipher, secret, iv)
-    }
+    fun decryptWithPrefixIV(cipherText: ByteArray, secret: SecretKey): String =
+        with(wrap(cipherText)) {
+            val iv = ByteArray(IV_SIZE).also(::get)
+            val cipher = ByteArray(remaining()).also(::get)
+            decrypt(cipher, secret, iv)
+        }
 
     fun decrypt(cText: ByteArray, secret: SecretKey, iv: ByteArray): String =
         Cipher.getInstance("AES/CBC/PKCS5Padding")
@@ -52,4 +49,6 @@ object AesEncoder {
             .doFinal(cText)
             .let(::String)
 
+    fun concat(iv: ByteArray, cipher: ByteArray): ByteArray =
+        allocate(iv.size + cipher.size).put(iv).put(cipher).array()
 }
