@@ -20,7 +20,7 @@ fun `AES-CBC-PKCS5Padding should pass`() {
     val encryptedText = encrypt(secretKey, plainText, iv)
 
     val decryptedText = decrypt(secretKey, encryptedText)
-    assert(decryptedText == plainText)
+    check(decryptedText == plainText)
 }
 
 fun `AES-CBC-PKCS5Padding (Salesforce) should pass`() {
@@ -35,10 +35,10 @@ fun `AES-CBC-PKCS5Padding (Salesforce) should pass`() {
     val secretKey = getAESKey(password.toCharArray(), salt.toByteArray(), AES_KEY_BIT_SIZE, ITERATIONS)
 
     val encryptedText = encrypt(secretKey, plainText, iv)
-    assert(encryptedText.contentEquals(cipherText))
+    check(encryptedText.contentEquals(cipherText))
 
     val decryptedText = decrypt(secretKey, encryptedText)
-    assert(decryptedText == plainText)
+    check(decryptedText == plainText)
 }
 
 private fun encrypt(secretKey: SecretKey, plainText: String, iv: ByteArray): ByteArray {
