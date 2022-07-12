@@ -1,5 +1,5 @@
 import AesEncoder.decryptWithPrefixIV
-import AesEncoder.encryptWithPrefixIV
+import AesEncoder.encrypt
 import AesEncoder.getAESKey
 import AesEncoder.getRandomIV
 import java.util.Base64
@@ -7,10 +7,27 @@ import javax.crypto.SecretKey
 
 const val AES_KEY_BIT_SIZE = 256
 const val ITERATIONS = 1000
+const val SALT = "e0cf1267f564b362"
+val KEY_SIZES = listOf(128, 196, 256)
 
 fun main() {
     `AES-CBC-PKCS5Padding should pass`()
-    `AES-CBC-PKCS5Padding (Salesforce) should pass`()
+    (1..65536).forEach { iterations ->
+        if (iterations % 100 == 0) {
+            println("Iterations: $iterations")
+        }
+
+        KEY_SIZES.forEach { keySize ->
+            if (trySalesforceAes(SALT.fromHex(), keySize, iterations).isSuccess) {
+                println("ERMAHGERD, FOUND THE SOLUTION!!!1! Salt: HEX, Size: $keySize iterations: $iterations")
+                return
+            }
+            if (trySalesforceAes(SALT.toByteArray(), keySize, iterations).isSuccess) {
+                println("ERMAHGERD, FOUND THE SOLUTION!!!1! Salt: BA, Size: $keySize iterations: $iterations")
+                return
+            }
+        }
+    }
 }
 
 fun `AES-CBC-PKCS5Padding should pass`() {
@@ -18,24 +35,26 @@ fun `AES-CBC-PKCS5Padding should pass`() {
     val secretKey = getAESKey(AES_KEY_BIT_SIZE)
     val iv = getRandomIV()
 
-    val encryptedText = encrypt(secretKey, plainText, iv)
+    val encryptedText = doEncrypt(secretKey, plainText, iv)
     val decryptedText = decryptWithPrefixIV(encryptedText, secretKey)
     check(decryptedText == plainText)
 }
 
 fun `AES-CBC-PKCS5Padding (Salesforce) should pass`() {
-    // The trick is block size 16, key size 32, pbkdf2 with 1000 iterations and padding pkcs7
+    trySalesforceAes(SALT.toByteArray(), AES_KEY_BIT_SIZE, ITERATIONS).getOrThrow()
+}
 
+private fun trySalesforceAes(salt: ByteArray, keySize: Int, iterationCount: Int) = runCatching {
     val plainText = "limedash"
     val password = "fresh"
-    val salt = "e0cf1267f564b362".fromHex()
     val iv = "4963b7334a46352623252955df21d7f3".fromHex()
     val cipherText = "4fKWdv7fJRkFsYO6RRtrMg==".fromBase64()
-    val secretKey = getAESKey(password, salt, AES_KEY_BIT_SIZE, ITERATIONS)
 
-    val encryptedText = encrypt(secretKey, plainText, iv)
+    // The trick is block size 16, key size 32, pbkdf2 with 1000 iterations and padding pkcs7
+    val secretKey = getAESKey(password, salt, keySize, iterationCount)
+    val encryptedText = doEncrypt(secretKey, plainText, iv)
     val cipherTextWithIv = AesEncoder.concat(iv, cipherText)
-    print("Expected  (base64)", cipherTextWithIv.toBase64())
+    print("Expected  (base64)", cipherText.toBase64())
     check(encryptedText.contentEquals(cipherTextWithIv))
 
     val decryptedText = decryptWithPrefixIV(encryptedText, secretKey)
@@ -43,9 +62,18 @@ fun `AES-CBC-PKCS5Padding (Salesforce) should pass`() {
     check(decryptedText == plainText)
 }
 
-private fun encrypt(secretKey: SecretKey, plainText: String, iv: ByteArray): ByteArray {
-    val encryptedText = encryptWithPrefixIV(plainText, secretKey, iv)
-    println("\n------ AES Encryption ------")
+private fun doEncrypt(secretKey: SecretKey, plainText: String, iv: ByteArray): ByteArray {
+    val encryptedText = encrypt(plainText, secretKey, iv)
+    print(plainText, secretKey, iv, encryptedText)
+    return encryptedText
+}
+
+private fun print(
+    plainText: String,
+    secretKey: SecretKey,
+    iv: ByteArray,
+    encryptedText: ByteArray
+) {
     print("Input     (plain text)", plainText)
     print("Key       (hex)", secretKey.encoded.toHex())
     print("IV        (hex)", iv.toHex())
@@ -53,11 +81,10 @@ private fun encrypt(secretKey: SecretKey, plainText: String, iv: ByteArray): Byt
     print("Key       (base64)", secretKey.encoded.toBase64())
     print("IV        (base64)", iv.toBase64())
     print("Encrypted (base64)", encryptedText.toBase64())
-    return encryptedText
 }
 
 fun print(vararg args: Any) {
-    println(String.format("%-30s: %s", *args))
+//    println(String.format("%-30s: %s", *args))
 }
 
 fun ByteArray.toHex(): String = buildString {
