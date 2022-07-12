@@ -1,5 +1,6 @@
 import AesEncoder.decryptWithPrefixIV
-import AesEncoder.encrypt
+import AesEncoder.concat
+import AesEncoder.encryptWithPrefixIV
 import AesEncoder.getAESKey
 import AesEncoder.getRandomIV
 import java.util.Base64
@@ -37,6 +38,7 @@ fun `AES-CBC-PKCS5Padding should pass`() {
 
     val encryptedText = doEncrypt(secretKey, plainText, iv)
     val decryptedText = decryptWithPrefixIV(encryptedText, secretKey)
+    print("Decrypted (plain text)", decryptedText)
     check(decryptedText == plainText)
 }
 
@@ -53,8 +55,8 @@ private fun trySalesforceAes(salt: ByteArray, keySize: Int, iterationCount: Int)
     // The trick is block size 16, key size 32, pbkdf2 with 1000 iterations and padding pkcs7
     val secretKey = getAESKey(password, salt, keySize, iterationCount)
     val encryptedText = doEncrypt(secretKey, plainText, iv)
-    val cipherTextWithIv = AesEncoder.concat(iv, cipherText)
-    print("Expected  (base64)", cipherText.toBase64())
+    val cipherTextWithIv = concat(iv, cipherText)
+    print("Expected  (base64)", cipherTextWithIv.toBase64())
     check(encryptedText.contentEquals(cipherTextWithIv))
 
     val decryptedText = decryptWithPrefixIV(encryptedText, secretKey)
@@ -63,7 +65,7 @@ private fun trySalesforceAes(salt: ByteArray, keySize: Int, iterationCount: Int)
 }
 
 private fun doEncrypt(secretKey: SecretKey, plainText: String, iv: ByteArray): ByteArray {
-    val encryptedText = encrypt(plainText, secretKey, iv)
+    val encryptedText = encryptWithPrefixIV(plainText, secretKey, iv)
     print(plainText, secretKey, iv, encryptedText)
     return encryptedText
 }
