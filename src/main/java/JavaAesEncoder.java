@@ -37,9 +37,9 @@ public class JavaAesEncoder {
     }
 
     private static byte[] generateByteArray(int size) {
-        byte[] iv = new byte[size];
-        new SecureRandom().nextBytes(iv);
-        return iv;
+        byte[] byteArray = new byte[size];
+        new SecureRandom().nextBytes(byteArray);
+        return byteArray;
     }
 
     public static CipherParameters buildKey(String password, byte[] salt) {
