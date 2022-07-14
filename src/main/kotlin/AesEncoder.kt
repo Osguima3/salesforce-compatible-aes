@@ -30,7 +30,7 @@ interface AesEncoder<Key> {
     }
 
     fun decrypt(key: Key, cipherText: ByteArray, iv: ByteArray): String =
-        String(process(Cipher.DECRYPT_MODE, key, iv, cipherText))
+        String(process(Cipher.DECRYPT_MODE, key, iv, cipherText)).trimEnd { it.code == 0}
 
     fun process(mode: Int, key: Key, iv: ByteArray, input: ByteArray): ByteArray
 

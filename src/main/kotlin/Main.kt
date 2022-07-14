@@ -2,42 +2,43 @@ import org.bouncycastle.util.encoders.Base64
 
 const val AES_KEY_BIT_SIZE = 256
 const val ITERATIONS = 1000
-const val SALT = "e0cf1267f564b362"
 
 fun main() {
-    JavaAesEncoder.shouldPass()
-    BouncyCastleAesEncoder.shouldPass()
+    println("----Java-----")
+    JavaAesEncoder.`should pass`()
+
+    println("----Bouncy Castle-----")
+    BouncyCastleAesEncoder.`should pass`()
+
+    println("----Salesforce (Example at https://ampscript.guide/encryptsymmetric)-----")
     `AES-CBC-PKCS7Padding (Salesforce) should pass`()
 }
 
 fun `AES-CBC-PKCS7Padding (Salesforce) should pass`() = with(BouncyCastleAesEncoder) {
-    val plainText = "limedash"
-    val password = "fresh"
-    val iv = "4963b7334a46352623252955df21d7f3".fromHex()
-    val cipherText = "4fKWdv7fJRkFsYO6RRtrMg==".fromBase64()
-
-    // The trick is block size 16, key size 32, pbkdf2 with 1000 iterations and padding pkcs7
-    val secretKey = buildKey(password, SALT.toByteArray(), AES_KEY_BIT_SIZE, ITERATIONS)
-
-    val encryptedText = encryptWithPrefixIV(secretKey, plainText, iv)
-    val cipherTextWithIv = concat(iv, cipherText)
-    val decryptedText = decryptWithPrefixIV(secretKey, encryptedText)
-    print(plainText, iv, encryptedText, decryptedText, cipherTextWithIv)
-
-    check(encryptedText.contentEquals(cipherTextWithIv))
-    check(decryptedText == plainText)
-    println()
+    `should pass`(
+        secretKey = buildKey(
+            password = "fresh",
+            salt = "e0cf1267f564b362".fromHex(),
+            keySize = AES_KEY_BIT_SIZE,
+            iterationCount = ITERATIONS
+        ),
+        iv = "4963b7334a46352623252955df21d7f3".fromHex(),
+        plainText = "limedash",
+        expectedEncryptedText = "4fKWdv7fJRkFsYO6RRtrMg==".fromBase64()
+    )
 }
 
-private fun <Key> AesEncoder<Key>.shouldPass(
+private fun <Key> AesEncoder<Key>.`should pass`(
     secretKey: Key = generateKey(AES_KEY_BIT_SIZE),
     iv: ByteArray = generateIV(),
-    plainText: String = "Hello World AES, Welcome to Cryptography!"
+    plainText: String = "Hello World AES, Welcome to Cryptography!",
+    expectedEncryptedText: ByteArray? = null
 ) {
-    val encryptedText = encryptWithPrefixIV(secretKey, plainText, iv)
-    val decryptedText = decryptWithPrefixIV(secretKey, encryptedText)
-    print(iv, plainText, encryptedText, decryptedText)
+    val encryptedText = encrypt(secretKey, plainText, iv)
+    val decryptedText = decrypt(secretKey, encryptedText, iv)
+    print(iv, plainText, encryptedText, decryptedText, expectedEncryptedText)
     check(decryptedText == plainText)
+    expectedEncryptedText?.let { check(it.contentEquals(encryptedText)) }
     println()
 }
 
