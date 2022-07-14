@@ -1,92 +1,64 @@
-import AesEncoder.decryptWithPrefixIV
-import AesEncoder.concat
-import AesEncoder.encryptWithPrefixIV
-import AesEncoder.getAESKey
-import AesEncoder.getRandomIV
-import java.util.Base64
-import javax.crypto.SecretKey
+import org.bouncycastle.util.encoders.Base64
 
 const val AES_KEY_BIT_SIZE = 256
 const val ITERATIONS = 1000
 const val SALT = "e0cf1267f564b362"
-val KEY_SIZES = listOf(128, 196, 256)
 
 fun main() {
-    `AES-CBC-PKCS5Padding should pass`()
-    (1..65536).forEach { iterations ->
-        if (iterations % 100 == 0) {
-            println("Iterations: $iterations")
-        }
-
-        KEY_SIZES.forEach { keySize ->
-            if (trySalesforceAes(SALT.fromHex(), keySize, iterations).isSuccess) {
-                println("ERMAHGERD, FOUND THE SOLUTION!!!1! Salt: HEX, Size: $keySize iterations: $iterations")
-                return
-            }
-            if (trySalesforceAes(SALT.toByteArray(), keySize, iterations).isSuccess) {
-                println("ERMAHGERD, FOUND THE SOLUTION!!!1! Salt: BA, Size: $keySize iterations: $iterations")
-                return
-            }
-        }
-    }
+    JavaAesEncoder.shouldPass()
+    BouncyCastleAesEncoder.shouldPass()
+    `AES-CBC-PKCS7Padding (Salesforce) should pass`()
 }
 
-fun `AES-CBC-PKCS5Padding should pass`() {
-    val plainText = "Hello World AES, Welcome to Cryptography!"
-    val secretKey = getAESKey(AES_KEY_BIT_SIZE)
-    val iv = getRandomIV()
-
-    val encryptedText = doEncrypt(secretKey, plainText, iv)
-    val decryptedText = decryptWithPrefixIV(encryptedText, secretKey)
-    print("Decrypted (plain text)", decryptedText)
-    check(decryptedText == plainText)
-}
-
-fun `AES-CBC-PKCS5Padding (Salesforce) should pass`() {
-    trySalesforceAes(SALT.toByteArray(), AES_KEY_BIT_SIZE, ITERATIONS).getOrThrow()
-}
-
-private fun trySalesforceAes(salt: ByteArray, keySize: Int, iterationCount: Int) = runCatching {
+fun `AES-CBC-PKCS7Padding (Salesforce) should pass`() = with(BouncyCastleAesEncoder) {
     val plainText = "limedash"
     val password = "fresh"
     val iv = "4963b7334a46352623252955df21d7f3".fromHex()
     val cipherText = "4fKWdv7fJRkFsYO6RRtrMg==".fromBase64()
 
     // The trick is block size 16, key size 32, pbkdf2 with 1000 iterations and padding pkcs7
-    val secretKey = getAESKey(password, salt, keySize, iterationCount)
-    val encryptedText = doEncrypt(secretKey, plainText, iv)
-    val cipherTextWithIv = concat(iv, cipherText)
-    print("Expected  (base64)", cipherTextWithIv.toBase64())
-    check(encryptedText.contentEquals(cipherTextWithIv))
+    val secretKey = buildKey(password, SALT.toByteArray(), AES_KEY_BIT_SIZE, ITERATIONS)
 
-    val decryptedText = decryptWithPrefixIV(encryptedText, secretKey)
-    print("Decrypted (plain text)", decryptedText)
+    val encryptedText = encryptWithPrefixIV(secretKey, plainText, iv)
+    val cipherTextWithIv = concat(iv, cipherText)
+    val decryptedText = decryptWithPrefixIV(secretKey, encryptedText)
+    print(plainText, iv, encryptedText, decryptedText, cipherTextWithIv)
+
+    check(encryptedText.contentEquals(cipherTextWithIv))
     check(decryptedText == plainText)
+    println()
 }
 
-private fun doEncrypt(secretKey: SecretKey, plainText: String, iv: ByteArray): ByteArray {
-    val encryptedText = encryptWithPrefixIV(plainText, secretKey, iv)
-    print(plainText, secretKey, iv, encryptedText)
-    return encryptedText
+private fun <Key> AesEncoder<Key>.shouldPass(
+    secretKey: Key = generateKey(AES_KEY_BIT_SIZE),
+    iv: ByteArray = generateIV(),
+    plainText: String = "Hello World AES, Welcome to Cryptography!"
+) {
+    val encryptedText = encryptWithPrefixIV(secretKey, plainText, iv)
+    val decryptedText = decryptWithPrefixIV(secretKey, encryptedText)
+    print(iv, plainText, encryptedText, decryptedText)
+    check(decryptedText == plainText)
+    println()
 }
 
 private fun print(
-    plainText: String,
-    secretKey: SecretKey,
     iv: ByteArray,
-    encryptedText: ByteArray
+    plainText: String,
+    encryptedText: ByteArray,
+    decryptedText: String,
+    expectedEncryptedText: ByteArray? = null
 ) {
     print("Input     (plain text)", plainText)
-    print("Key       (hex)", secretKey.encoded.toHex())
     print("IV        (hex)", iv.toHex())
     print("Encrypted (hex)", encryptedText.toHex())
-    print("Key       (base64)", secretKey.encoded.toBase64())
     print("IV        (base64)", iv.toBase64())
     print("Encrypted (base64)", encryptedText.toBase64())
+    print("Expected  (base64)", expectedEncryptedText?.toBase64() ?: "-")
+    print("Decrypted (plain text)", decryptedText)
 }
 
-fun print(vararg args: Any) {
-//    println(String.format("%-30s: %s", *args))
+fun print(vararg args: Any?) {
+    println(String.format("%-30s: %s", *args))
 }
 
 fun ByteArray.toHex(): String = buildString {
@@ -95,6 +67,6 @@ fun ByteArray.toHex(): String = buildString {
 
 fun String.fromHex() = chunked(2).map { it.toInt(16).toByte() }.toByteArray()
 
-fun ByteArray.toBase64(): String = Base64.getEncoder().encodeToString(this)
+fun ByteArray.toBase64(): String = Base64.toBase64String(this)
 
-fun String.fromBase64(): ByteArray = Base64.getDecoder().decode(this)
+fun String.fromBase64(): ByteArray = Base64.decode(this)
