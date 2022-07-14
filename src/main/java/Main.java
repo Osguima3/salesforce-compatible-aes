@@ -41,7 +41,7 @@ public class Main {
             String decryptedText = JavaAesEncoder.decrypt(key, encryptedText, iv);
             Assert(clearText, iv, encryptedText, decryptedText, expectedEncryptedText);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            assert false;
         }
     }
 
@@ -52,7 +52,7 @@ public class Main {
 
             Assert(clearText, iv, encryptedText, decryptedText, null);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            assert false;
         }
     }
 

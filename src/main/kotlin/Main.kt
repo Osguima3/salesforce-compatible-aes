@@ -6,20 +6,18 @@ import KotlinAesEncoder.encryptWithPrefixIV
 import KotlinAesEncoder.generateIV
 import KotlinAesEncoder.generateKey
 import org.bouncycastle.crypto.CipherParameters
-import org.bouncycastle.util.encoders.Base64
-import org.bouncycastle.util.encoders.Hex
 
 fun main() {
     println("----Random generated key + IV-----")
     runTest(
-        key = generateKey(AES_KEY_BIT_SIZE),
+        key = generateKey(),
         iv = generateIV(),
         clearText = "Hello World AES, Welcome to Cryptography!"
     )
 
     println("----Random generated key + IV, embedded IV-----")
     runTestWithPrefixIv(
-        key = generateKey(AES_KEY_BIT_SIZE),
+        key = generateKey(),
         iv = generateIV(),
         clearText = "Hello World AES, Welcome to Cryptography!"
     )
@@ -74,11 +72,3 @@ fun assert(
 fun print(vararg args: Any?) {
     println(String.format("%-30s: %s", *args))
 }
-
-fun ByteArray.toHex(): String = Hex.toHexString(this)
-
-fun String.fromHex(): ByteArray = Hex.decode(this)
-
-fun ByteArray.toBase64(): String = Base64.toBase64String(this)
-
-fun String.fromBase64(): ByteArray = Base64.decode(this)
