@@ -1,26 +1,33 @@
+import BouncyCastleAesEncoder.buildKey
+import BouncyCastleAesEncoder.decrypt
+import BouncyCastleAesEncoder.decryptWithPrefixIV
+import BouncyCastleAesEncoder.encrypt
+import BouncyCastleAesEncoder.encryptWithPrefixIV
+import BouncyCastleAesEncoder.generateIV
+import BouncyCastleAesEncoder.generateKey
+import org.bouncycastle.crypto.CipherParameters
 import org.bouncycastle.util.encoders.Base64
 
-const val AES_KEY_BIT_SIZE = 256
-const val ITERATIONS = 1000
-
 fun main() {
-    println("----Java-----")
-    JavaAesEncoder.`should pass`()
+    println("----Random generated key + IV-----")
+    runTest(
+        key = generateKey(AES_KEY_BIT_SIZE),
+        iv = generateIV(),
+        plainText = "Hello World AES, Welcome to Cryptography!"
+    )
 
-    println("----Bouncy Castle-----")
-    BouncyCastleAesEncoder.`should pass`()
+    println("----Random generated key + IV, embedded IV-----")
+    runTestWithPrefixIv(
+        key = generateKey(AES_KEY_BIT_SIZE),
+        iv = generateIV(),
+        plainText = "Hello World AES, Welcome to Cryptography!"
+    )
 
-    println("----Salesforce (Example at https://ampscript.guide/encryptsymmetric)-----")
-    `AES-CBC-PKCS7Padding (Salesforce) should pass`()
-}
-
-fun `AES-CBC-PKCS7Padding (Salesforce) should pass`() = with(BouncyCastleAesEncoder) {
-    `should pass`(
-        secretKey = buildKey(
+    println("----Salesforce provided example (https://ampscript.guide/encryptsymmetric)-----")
+    runTest(
+        key = buildKey(
             password = "fresh",
-            salt = "e0cf1267f564b362".fromHex(),
-            keySize = AES_KEY_BIT_SIZE,
-            iterationCount = ITERATIONS
+            salt = "e0cf1267f564b362".fromHex()
         ),
         iv = "4963b7334a46352623252955df21d7f3".fromHex(),
         plainText = "limedash",
@@ -28,23 +35,23 @@ fun `AES-CBC-PKCS7Padding (Salesforce) should pass`() = with(BouncyCastleAesEnco
     )
 }
 
-private fun <Key> AesEncoder<Key>.`should pass`(
-    secretKey: Key = generateKey(AES_KEY_BIT_SIZE),
-    iv: ByteArray = generateIV(),
-    plainText: String = "Hello World AES, Welcome to Cryptography!",
-    expectedEncryptedText: ByteArray? = null
-) {
-    val encryptedText = encrypt(secretKey, plainText, iv)
-    val decryptedText = decrypt(secretKey, encryptedText, iv)
-    print(iv, plainText, encryptedText, decryptedText, expectedEncryptedText)
-    check(decryptedText == plainText)
-    expectedEncryptedText?.let { check(it.contentEquals(encryptedText)) }
-    println()
+fun runTest(key: CipherParameters, iv: ByteArray, plainText: String, expectedEncryptedText: ByteArray? = null) {
+    val encryptedText = encrypt(key, plainText, iv)
+    val decryptedText = decrypt(key, encryptedText, iv)
+
+    assert(plainText, iv, encryptedText, decryptedText, expectedEncryptedText)
 }
 
-private fun print(
-    iv: ByteArray,
+fun runTestWithPrefixIv(key: CipherParameters, iv: ByteArray, plainText: String) {
+    val encryptedText = encryptWithPrefixIV(key, plainText, iv)
+    val decryptedText = decryptWithPrefixIV(key, encryptedText)
+
+    assert(plainText, iv, encryptedText, decryptedText)
+}
+
+fun assert(
     plainText: String,
+    iv: ByteArray,
     encryptedText: ByteArray,
     decryptedText: String,
     expectedEncryptedText: ByteArray? = null
@@ -54,8 +61,16 @@ private fun print(
     print("Encrypted (hex)", encryptedText.toHex())
     print("IV        (base64)", iv.toBase64())
     print("Encrypted (base64)", encryptedText.toBase64())
-    print("Expected  (base64)", expectedEncryptedText?.toBase64() ?: "-")
+
+    expectedEncryptedText?.let {
+        print("Expected  (base64)", it.toBase64())
+        check(it.contentEquals(encryptedText))
+    }
+
     print("Decrypted (plain text)", decryptedText)
+    check(decryptedText == plainText)
+
+    println()
 }
 
 fun print(vararg args: Any?) {
