@@ -14,7 +14,7 @@ private const val IV_SIZE = 16
 private const val ENCRYPT_MODE = 1
 private const val DECRYPT_MODE = 2
 
-object BouncyCastleAesEncoder {
+object KotlinAesEncoder {
 
     private val cipher = PaddedBufferedBlockCipher(CBCBlockCipher(AESEngine()))
 
@@ -36,11 +36,11 @@ object BouncyCastleAesEncoder {
         generateDerivedParameters(keySize)
     }
 
-    fun encryptWithPrefixIV(key: CipherParameters, plainText: String, iv: ByteArray = generateIV()): ByteArray =
-        concat(iv, encrypt(key, plainText, iv))
+    fun encryptWithPrefixIV(key: CipherParameters, clearText: String, iv: ByteArray = generateIV()): ByteArray =
+        concat(iv, encrypt(key, clearText, iv))
 
-    fun encrypt(key: CipherParameters, plainText: String, iv: ByteArray): ByteArray =
-        process(ENCRYPT_MODE, key, iv, plainText.toByteArray())
+    fun encrypt(key: CipherParameters, clearText: String, iv: ByteArray): ByteArray =
+        process(ENCRYPT_MODE, key, iv, clearText.toByteArray())
 
     fun decryptWithPrefixIV(key: CipherParameters, input: ByteArray): String = with(ByteBuffer.wrap(input)) {
         val iv = ByteArray(IV_SIZE).also(::get)
